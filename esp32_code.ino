@@ -405,7 +405,7 @@ void setup() {
 
 int stopplatePressureChangeThreshold = 50;
 int stopplatePressureErrorLimit = 6000;
-int stopplateTriggerCooldown = 50;
+int stopplateTriggerCooldown = 200;
 
 long lastTrigger;
 void loop() {
