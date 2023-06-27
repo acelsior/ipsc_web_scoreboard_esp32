@@ -32,8 +32,11 @@
 //pin define
 #define HX711_SCK 16
 #define HX711_DT 4
-#define ORANGE_INDICATOR 5
-#define BLUE_INDICATOR 17
+
+#define ORANGE_INDICATOR 4
+#define BLUE_INDICATOR 2
+#define ANA_MIC_PIN 32 
+#define DIG_MIC_PIN 33 
 
 //setting
 Preferences preferences;
@@ -343,6 +346,7 @@ void setup() {
   Serial.println();
   Serial.println("Initializing...");
   Serial.flush();
+  esp_log_level_set("*", ESP_LOG_ERROR);        // set all components to ERROR level
 
   BLEDevice::init(DEVICE_NAME);
   pServer = BLEDevice::createServer();
@@ -409,8 +413,12 @@ int stopplateTriggerCooldown = 200;
 
 long lastTrigger;
 void loop() {
-  int micVal = analogRead(32);
-  if (micVal != 0 && millis() - lastTrigger >= stopplateTriggerCooldown) {
+  int micVal = analogRead(ANA_MIC_PIN);
+  Serial.print(analogRead(DIG_MIC_PIN));
+  Serial.print(",");
+  Serial.println(analogRead(ANA_MIC_PIN));
+  delay(10);
+  if (micVal >= 3000 && millis() - lastTrigger >= stopplateTriggerCooldown) {
     lastTrigger = millis();
     hitHandler(micVal);
   }
