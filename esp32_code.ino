@@ -21,6 +21,8 @@
 #include <BLEBeacon.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
+#include "soc/rtc_wdt.h"
+
 
 #define DEVICE_NAME "ESP32"
 #define SERVICE_UUID "7A0247E7-8E88-409B-A959-AB5092DDB03E"
@@ -228,73 +230,6 @@ void init_service() {
   BLEDevice::startAdvertising();
 }
 
-/*
-long init_val = 0;
-long currentVal = 0;
-TaskHandle_t getPlateValTask;
-
-long getPlateVal(void) {
-  Serial.print("getPlateVal() running on core ");
-  Serial.println(xPortGetCoreID());
-  long Count = 0;
-  char i;
-  digitalWrite(HX711_SCK, LOW);  //使能AD（PD_SCK 置低）
-  while (digitalRead(HX711_DT))
-    ;  //AD转换未结束则等待，否则开始读取
-  for (i = 0; i < 24; i++) {
-    digitalWrite(HX711_SCK, HIGH);  //PD_SCK 置高（发送脉冲）
-    Count = Count << 1;             //下降沿来时变量Count左移一位，右侧补零
-    digitalWrite(HX711_SCK, LOW);   //PD_SCK 置低
-    if (digitalRead(HX711_DT)) Count++;
-  }
-  digitalWrite(HX711_SCK, HIGH);
-  Count = Count ^ 0x800000;  //第25个脉冲下降沿来时，转换数据
-  digitalWrite(HX711_SCK, LOW);
-  return (Count);
-}
-int prevPressure, currentPressure;
-void Task1code(void *parameter) {
-  for (;;) {
-    long Count = 0;
-    char i;
-    digitalWrite(HX711_SCK, LOW);  //使能AD（PD_SCK 置低）
-    while (digitalRead(HX711_DT))
-      ;  //AD转换未结束则等待，否则开始读取
-    for (i = 0; i < 24; i++) {
-      digitalWrite(HX711_SCK, HIGH);  //PD_SCK 置高（发送脉冲）
-      Count = Count << 1;             //下降沿来时变量Count左移一位，右侧补零
-      digitalWrite(HX711_SCK, LOW);   //PD_SCK 置低
-      if (digitalRead(HX711_DT)) Count++;
-    }
-    digitalWrite(HX711_SCK, HIGH);
-    Count = Count ^ 0x800000;  //第25个脉冲下降沿来时，转换数据
-    digitalWrite(HX711_SCK, LOW);
-    currentVal = Count;
-    currentPressure = getPlatePress();
-  }
-}
-void initPlate() {
-  pinMode(HX711_SCK, OUTPUT);
-  pinMode(HX711_DT, INPUT);
-  xTaskCreatePinnedToCore(
-    Task1code,         
-    "getPlateValTask", 
-    10000,             
-    NULL,              
-    tskIDLE_PRIORITY,  
-    &getPlateValTask,  
-    0);                
-  delay(100);
-  init_val = currentVal;
-}
-long getPlatePress() {
-  long HX711_Buffer = currentVal;
-  long Weight_Shiwu = HX711_Buffer;
-  Weight_Shiwu = Weight_Shiwu - init_val;  //获取实物的AD采样数值。
-  Weight_Shiwu = (long)((float)Weight_Shiwu / 430);
-  return Weight_Shiwu;
-}
-*/
 
 void hitHandler(int val) {
   Serial.println("HIT");
@@ -342,22 +277,34 @@ void hitHandler(int val) {
 }
 
 void setup() {
+  
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  rtc_wdt_protect_off();
+  rtc_wdt_disable();
+
+
   Serial.begin(115200);
   Serial.println();
   Serial.println("Initializing...");
-  Serial.flush();
-  esp_log_level_set("*", ESP_LOG_ERROR);        // set all components to ERROR level
+  delay(1000);
+  // Serial.flush();
+  // esp_log_level_set("*", ESP_LOG_ERROR);        // set all components to ERROR level
 
-  BLEDevice::init(DEVICE_NAME);
+  pinMode(BLUE_INDICATOR, OUTPUT);
+  pinMode(ORANGE_INDICATOR, OUTPUT);
+  digitalWrite(BLUE_INDICATOR, HIGH);
+  digitalWrite(ORANGE_INDICATOR, HIGH);
+
+  BLEDevice::init(DEVICE_NAME); //force reset here
+
+  digitalWrite(BLUE_INDICATOR, LOW);
+  digitalWrite(ORANGE_INDICATOR, LOW);
+
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
   init_service();
   // initPlate();
-  pinMode(BLUE_INDICATOR, OUTPUT);
-  pinMode(ORANGE_INDICATOR, OUTPUT);
-  digitalWrite(BLUE_INDICATOR, HIGH);
-  digitalWrite(ORANGE_INDICATOR, HIGH);
 
   preferences.begin("stopplate", false);
   if (preferences.getInt("flashDuration", -1) == -1) {
@@ -414,11 +361,11 @@ int stopplateTriggerCooldown = 200;
 long lastTrigger;
 void loop() {
   int micVal = analogRead(ANA_MIC_PIN);
-  Serial.print(analogRead(DIG_MIC_PIN));
-  Serial.print(",");
-  Serial.println(analogRead(ANA_MIC_PIN));
+  // Serial.print(analogRead(DIG_MIC_PIN));
+  // Serial.print(",");
+  // Serial.println(analogRead(ANA_MIC_PIN));
   delay(10);
-  if (micVal >= 3000 && millis() - lastTrigger >= stopplateTriggerCooldown) {
+  if (micVal >= 1200 && millis() - lastTrigger >= stopplateTriggerCooldown) {
     lastTrigger = millis();
     hitHandler(micVal);
   }
